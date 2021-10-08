@@ -1,0 +1,45 @@
+# mika.py
+import os
+
+import discord
+from dotenv import load_dotenv
+
+import random
+import schedule
+import time
+
+load_dotenv()
+TOKEN = os.getenv('DISCORD_TOKEN')
+
+client = discord.Client()
+
+@client.event
+async def on_ready():
+	print(f'{client.user} has connected to Discord!')
+
+def question_add(question):
+    with open('./questions.txt') as questions:
+        questions.write(question)
+
+@client.event
+def question_post(message):
+    with open('./questions.txt') as questions:
+        lines = questions.read().splitlines()
+        myline = random.choice(lines)
+    await message.channel.send('Question of the day!'+ myline)
+        
+
+schedule.every().day.at("21:00").do(question_post)
+
+@client.event
+async def on_message(message):
+
+    if message.content.startswith('mika'):
+        if message.content.startswith('mika add '):
+            question = message.content.replace('mika add ','')
+            question_add(question)
+            await message.channel.send('QUESTION ADDED: '+ question)
+        if message.content.startswith('mika test'):
+            question_post
+
+client.run(TOKEN)
