@@ -13,24 +13,28 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 
 client = discord.Client()
 
+#Make sure bot is online.
 @client.event
 async def on_ready():
 	print(f'{client.user} has connected to Discord!')
 
+#Adds a question to the text file when called.
 def question_add(question):
     with open('./questions.txt') as questions:
         questions.write(question)
 
+#Posts question of the day when called.
 @client.event
-def question_post(message):
+async def question_post(message):
     with open('./questions.txt') as questions:
         lines = questions.read().splitlines()
         myline = random.choice(lines)
     await message.channel.send('Question of the day!'+ myline)
         
-
+#Scheduled to call question of the day.
 schedule.every().day.at("21:00").do(question_post)
 
+#Reads for commands, which includes adding questions and testing
 @client.event
 async def on_message(message):
 
