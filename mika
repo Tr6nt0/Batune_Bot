@@ -24,12 +24,11 @@ def question_add(question):
         questions.write('\n' + question)
 
 #Posts question of the day when called.
-@client.event
 async def question_post(message):
     with open('./questions.txt') as questions:
         lines = questions.read().splitlines()
         myline = random.choice(lines)
-    await message.channel.send('Question of the day!'+ myline)
+    await message.channel.send('Question of the day! '+ myline)
         
 #Scheduled to call question of the day.
 schedule.every().day.at("21:00").do(question_post)
@@ -37,13 +36,12 @@ schedule.every().day.at("21:00").do(question_post)
 #Reads for commands, which includes adding questions and testing
 @client.event
 async def on_message(message):
-
     if message.content.startswith('mika'):
         if message.content.startswith('mika add '):
             question = message.content.replace('mika add ','')
             question_add(question)
-            message.channel.send('QUESTION ADDED: '+ question)
+            await message.channel.send('Question added! '+ question)
         if message.content.startswith('mika test'):
-            question_post(message)
+           await question_post(message)
 
 client.run(TOKEN)
