@@ -57,8 +57,8 @@ async def on_ready():
 #Reads for commands, which includes adding questions and testing
 @client.event
 async def on_message(message):
-    if message.content.startswith('mika'):
-        if message.content.startswith('mika add '):
+    if message.content.lower().startswith('mika'):
+        if message.content.lower().startswith('mika add '):
             question = message.content.replace('mika add ','')
             question_add(question)
             await message.channel.send('QOTD ADDED: '+ question)
