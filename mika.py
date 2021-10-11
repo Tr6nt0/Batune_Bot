@@ -1,6 +1,6 @@
 # mika.py
 
-import os, discord, random
+import os, discord, random, re
 from discord.ext import tasks
 from dotenv import load_dotenv
 from datetime import datetime
@@ -11,10 +11,10 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 client = discord.Client()
 
 #ID of channel where questions are posted
-target = 
+target = 832016872954265644
 
 #Hour QOTD is to be posted
-posttime = 
+posttime = 23
 
 #Adds a question to the text file when called.
 def question_add(question):
@@ -57,13 +57,12 @@ async def on_ready():
 #Reads for commands, which includes adding questions and testing
 @client.event
 async def on_message(message):
-    if message.content.lower().startswith('mika'):
-        if message.content.lower().startswith('mika add '):
-            question = message.content.replace('mika add ','')
-            question_add(question)
-            await message.channel.send('QOTD ADDED: '+ question)
-        if message.content.startswith('mika test'):
-            channel = client.get_channel(target)
-            await question_post(channel)
+    if message.content.lower().startswith('mika add '):
+        question = re.sub('mika add ', '', message.content, flags=re.IGNORECASE)
+        await message.channel.send('QOTD ADDED: '+ question)
+        question_add(question)
+    if message.content.startswith('mika test'):
+        channel = client.get_channel(target)
+        await question_post(channel)
 
 client.run(TOKEN)
