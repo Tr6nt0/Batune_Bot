@@ -13,6 +13,9 @@ client = discord.Client()
 #ID of channel where questions are posted
 target = 
 
+#Hour QOTD is to be posted
+posttime = 
+
 #Adds a question to the text file when called.
 def question_add(question):
     with open('./questions.txt', 'a') as questions:
@@ -41,7 +44,7 @@ async def question_post(channel):
 #Scheduled to call question of the day.
 @tasks.loop(minutes=60)
 async def task():
-    if datetime.now().hour == 14:
+    if datetime.now().hour == posttime:
         channel = client.get_channel(target)
         await question_post(channel)
 
