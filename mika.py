@@ -11,27 +11,27 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 client = discord.Client()
 
 #ID of channel where questions are posted
-target = 
+target = 693989489990959147
 
 #Hour QOTD is to be posted
-posttime = 
+posttime = 23
 
 #Adds a question to the text file when called.
 def question_add(question):
-    with open('./questions.txt', 'a') as questions:
+    with open('questions.txt', 'a') as questions:
         questions.write('\n' + question)
 
 def remove_question(qotd):
-    with open ("./questions.txt", "r") as input:
-        with open ("./temp.txt", "w") as output:
+    with open ("questions.txt", "r") as input:
+        with open ("temp.txt", "w") as output:
             for line in input:
                 if line.strip("\n") != qotd:
                     output.write(line)
-    os.replace('./temp.txt', './questions.txt')
+    os.replace('temp.txt', 'questions.txt')
 
 #Posts question of the day when called.
 async def question_post(channel):
-    with open('./questions.txt', 'r') as questions:
+    with open('questions.txt', 'r') as questions:
         qlines = questions.read().splitlines()
         try:
             qotd = random.choice(qlines)
