@@ -11,10 +11,10 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 client = discord.Client()
 
 #ID of channel where questions are posted
-target = 693989489990959147
+target = #fill in here
 
 #Hour QOTD is to be posted
-posttime = 23
+posttime = #fill in here
 
 #Adds a question to the text file when called.
 def question_add(question):
