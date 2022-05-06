@@ -12,10 +12,10 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 client = discord.Client()
 
 #ID of channel where questions are posted
-target = 693989489990959147
+target = #fill in
 
 #Hour QOTD is to be posted
-posttime = 19
+posttime = #fill in
 
 questionsfile = Path(__file__).with_name('questions.txt')
 tempfile = Path(__file__).with_name('temp.txt')
