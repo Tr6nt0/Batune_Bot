@@ -1,4 +1,4 @@
-# qotd.py
+# mika.py
 
 import os, discord, random, re
 from discord.ext import tasks
