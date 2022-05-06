@@ -1,9 +1,10 @@
-# mika.py
+# qotd.py
 
 import os, discord, random, re
 from discord.ext import tasks
 from dotenv import load_dotenv
 from datetime import datetime
+from pathlib import Path
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -11,23 +12,26 @@ TOKEN = os.getenv('DISCORD_TOKEN')
 client = discord.Client()
 
 #ID of channel where questions are posted
-target = #fill in here
+target = 693989489990959147
 
 #Hour QOTD is to be posted
-posttime = #fill in here
+posttime = 19
+
+questionsfile = Path(__file__).with_name('questions.txt')
+tempfile = Path(__file__).with_name('temp.txt')
 
 #Adds a question to the text file when called.
 def question_add(question):
-    with open('questions.txt', 'a') as questions:
+    with open(questionsfile, 'a') as questions:
         questions.write('\n' + question)
 
 def remove_question(qotd):
-    with open ("questions.txt", "r") as input:
-        with open ("temp.txt", "w") as output:
+    with open (questionsfile, "r") as input:
+        with open (tempfile, "w") as output:
             for line in input:
                 if line.strip("\n") != qotd:
                     output.write(line)
-    os.replace('temp.txt', 'questions.txt')
+    os.replace(tempfile, questionsfile)
 
 #Posts question of the day when called.
 async def question_post(channel):
@@ -61,7 +65,7 @@ async def on_message(message):
         question = re.sub('mika add ', '', message.content, flags=re.IGNORECASE)
         await message.channel.send('QOTD ADDED: '+ question)
         question_add(question)
-    if message.content.startswith('mika test'):
+    if message.content.startswith('mika test') and message.author.guild_permissions.kick_members == True:
         channel = client.get_channel(target)
         await question_post(channel)
 
