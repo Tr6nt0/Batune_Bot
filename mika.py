@@ -35,7 +35,7 @@ def remove_question(qotd):
 
 #Posts question of the day when called.
 async def question_post(channel):
-    with open('questions.txt', 'r') as questions:
+    with open(questionsfile, 'r') as questions:
         qlines = questions.read().splitlines()
         try:
             qotd = random.choice(qlines)
