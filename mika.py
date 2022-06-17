@@ -68,5 +68,8 @@ async def on_message(message):
     if message.content.startswith('mika test') and message.author.guild_permissions.kick_members == True:
         channel = client.get_channel(target)
         await question_post(channel)
+    if message.content.startswith('mika say') and message.author.guild_permissions.kick_members == True:
+        puppetmessage = re.sub('mika say ', '', message.content, flags=re.IGNORECASE)
+        await message.channel.send(puppetmessage)
 
 client.run(TOKEN)
