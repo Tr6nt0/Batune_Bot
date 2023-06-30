@@ -8,46 +8,45 @@ from discord.ext import tasks
 
 import CONFIG
 
-client = discord.Client()
-channel = client.get_channel(CONFIG.TARGET_CHANNEL)
+intents = discord.Intents.default()
+intents.message_content = True
 
 conn = sqlite3.connect('questions.db')
 cursor = conn.cursor()
 
-if __name__ == '__main__':
-    if sys.argv[1] == '--reset-questions':
-        cursor.execute('DROP table IF EXISTS questions')
-        cursor.execute('CREATE table QUESTIONS (QUESTION TEXT)')
+client = discord.Client(intents=intents)
+
+if len(sys.argv) > 1:
+    if sys.argv[1] == '--rq':
+        cursor.execute('DROP table IF EXISTS questions_table')
+        cursor.execute('CREATE table questions_table (questions TEXT)')
         conn.commit()
-        conn.close()
         print('Question Table Reset Successfully.')
         exit()
 
-    cursor.execute('CREATE table IF NOT EXISTS QUESTIONS (QUESTION TEXT)')
-    conn.commit()
-    conn.close()
-
-    client.run(CONFIG.DISCORD_TOKEN)
+cursor.execute('CREATE table IF NOT EXISTS questions_table (questions TEXT)')
+conn.commit()
 
 
 def add_question(question):
-    cursor.execute('INSERT INTO QUESTIONS VALUES (?)', question)
+    cursor.execute('INSERT INTO questions_table (questions) VALUES (?)', [question])
     conn.commit()
-    conn.close()
 
 
 def remove_question(question):
-    cursor.execute('DELETE FROM QUESTION VALUES (?)', question)
+    cursor.execute('DELETE FROM questions_table WHERE questions=?', [question])
     conn.commit()
-    conn.close()
 
 
 async def post_question():
-    cursor.execute('SELECT QUESTION FROM QUESTIONS ORDER BY RAND() LIMIT 1')
-    qotd = cursor.fetchone()
-    if qotd:
+    channel = client.get_channel(CONFIG.TARGET_CHANNEL)
+
+    cursor.execute('SELECT questions FROM questions_table ORDER BY random() LIMIT 1')
+    try:
+        qotd = cursor.fetchone()[0]
         await channel.send('QOTD: ' + qotd)
-    else:
+        remove_question(qotd)
+    except:
         await channel.send('No questions left. Everyone submit one!')
     print(f'{client.user} has posted!')
 
@@ -60,12 +59,15 @@ async def task():
 
 @client.event
 async def on_ready():
+    channel = client.get_channel(CONFIG.TARGET_CHANNEL)
     print(f'{client.user} has connected to Discord! It is ' + str(datetime.utcnow()))
     await task.start()
 
 
 @client.event
 async def on_message(message):
+    channel = client.get_channel(CONFIG.TARGET_CHANNEL)
+
     if message.content.lower().startswith('mika add '):
         question = re.sub('mika add ', '', message.content, flags=re.IGNORECASE)
         await channel.send('QOTD ADDED: ' + question)
@@ -77,3 +79,5 @@ async def on_message(message):
     if message.content.lower().startswith('mika say') and message.author.guild_permissions.kick_members:
         my_message = re.sub('mika say ', '', message.content, flags=re.IGNORECASE)
         await channel.send(my_message)
+
+client.run(CONFIG.DISCORD_TOKEN)
