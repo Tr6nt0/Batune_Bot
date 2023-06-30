@@ -70,7 +70,7 @@ async def on_message(message):
 
     if message.content.lower().startswith('mika add '):
         question = re.sub('mika add ', '', message.content, flags=re.IGNORECASE)
-        await channel.send('QOTD ADDED: ' + question)
+        await message.channel.send('QOTD ADDED: ' + question)
         add_question(question)
 
     if message.content.lower().startswith('mika test') and message.author.guild_permissions.kick_members:
