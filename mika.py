@@ -6,7 +6,7 @@ from datetime import datetime
 
 from discord.ext import tasks
 
-from .. import CONFIG
+import CONFIG
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -74,7 +74,7 @@ async def on_message(message):
 
 
 if len(sys.argv) > 1:
-    if sys.argv[1] == '--rq':
+    if sys.argv[1] == '--reset':
         cursor.execute('DROP table IF EXISTS questions_table')
         cursor.execute('CREATE table questions_table (questions TEXT)')
         conn.commit()
@@ -86,7 +86,9 @@ if len(sys.argv) > 1:
             file = open(sys.argv[2], 'r')
             lines = file.readlines()
             for line in lines:
+                print(line)
                 add_question(line)
+            file.close()
         except Exception as import_error:
             print(import_error)
         exit()
@@ -94,8 +96,9 @@ if len(sys.argv) > 1:
     if sys.argv[1] == '--export':
         try:
             file = open(sys.argv[2], 'w')
-            cursor.execute('SELECT questions FROM question_table')
-            file.writelines(cursor.fetchall())
+            cursor.execute('SELECT questions FROM questions_table')
+            for line in cursor.fetchall():
+                file.writelines(line)
             file.close()
         except Exception as export_error:
             print(export_error)
