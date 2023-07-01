@@ -1,2 +1,5 @@
 
 CONFIG.py
+.idea
+.vscode
+questions.db

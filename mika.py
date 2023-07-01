@@ -86,7 +86,6 @@ if len(sys.argv) > 1:
             file = open(sys.argv[2], 'r')
             lines = file.readlines()
             for line in lines:
-                print(line)
                 add_question(line)
             file.close()
         except Exception as import_error:
