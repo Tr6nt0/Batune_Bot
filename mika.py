@@ -6,23 +6,15 @@ from datetime import datetime
 
 from discord.ext import tasks
 
-import CONFIG
+from .. import CONFIG
 
 intents = discord.Intents.default()
 intents.message_content = True
 
-conn = sqlite3.connect('questions.db')
+conn = sqlite3.connect('../questions.db')
 cursor = conn.cursor()
 
 client = discord.Client(intents=intents)
-
-if len(sys.argv) > 1:
-    if sys.argv[1] == '--rq':
-        cursor.execute('DROP table IF EXISTS questions_table')
-        cursor.execute('CREATE table questions_table (questions TEXT)')
-        conn.commit()
-        print('Question Table Reset Successfully.')
-        exit()
 
 cursor.execute('CREATE table IF NOT EXISTS questions_table (questions TEXT)')
 conn.commit()
@@ -46,7 +38,8 @@ async def post_question():
         qotd = cursor.fetchone()[0]
         await channel.send('QOTD: ' + qotd)
         remove_question(qotd)
-    except:
+    except Exception as post_error:
+        print(post_error)
         await channel.send('No questions left. Everyone submit one!')
     print(f'{client.user} has posted!')
 
@@ -59,7 +52,6 @@ async def task():
 
 @client.event
 async def on_ready():
-    channel = client.get_channel(CONFIG.TARGET_CHANNEL)
     print(f'{client.user} has connected to Discord! It is ' + str(datetime.utcnow()))
     await task.start()
 
@@ -79,5 +71,34 @@ async def on_message(message):
     if message.content.lower().startswith('mika say') and message.author.guild_permissions.kick_members:
         my_message = re.sub('mika say ', '', message.content, flags=re.IGNORECASE)
         await channel.send(my_message)
+
+
+if len(sys.argv) > 1:
+    if sys.argv[1] == '--rq':
+        cursor.execute('DROP table IF EXISTS questions_table')
+        cursor.execute('CREATE table questions_table (questions TEXT)')
+        conn.commit()
+        print('Question Table Reset Successfully.')
+        exit()
+
+    if sys.argv[1] == '--import':
+        try:
+            file = open(sys.argv[2], 'r')
+            lines = file.readlines()
+            for line in lines:
+                add_question(line)
+        except Exception as import_error:
+            print(import_error)
+        exit()
+
+    if sys.argv[1] == '--export':
+        try:
+            file = open(sys.argv[2], 'w')
+            cursor.execute('SELECT questions FROM question_table')
+            file.writelines(cursor.fetchall())
+            file.close()
+        except Exception as export_error:
+            print(export_error)
+        exit()
 
 client.run(CONFIG.DISCORD_TOKEN)
