@@ -11,7 +11,7 @@ import CONFIG
 intents = discord.Intents.default()
 intents.message_content = True
 
-conn = sqlite3.connect('../questions.db')
+conn = sqlite3.connect('questions.db')
 cursor = conn.cursor()
 
 client = discord.Client(intents=intents)
