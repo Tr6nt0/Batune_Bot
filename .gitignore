@@ -3,3 +3,4 @@ CONFIG.py
 .idea
 .vscode
 questions.db
+__pycache__
