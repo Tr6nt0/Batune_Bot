@@ -41,8 +41,8 @@ def remove_question(question):
 
 async def post_question():
     channel = client.get_channel(CONFIG.TARGET_CHANNEL)
-
     cursor.execute('SELECT questions FROM questions_table ORDER BY random() LIMIT 1')
+
     try:
         qotd = cursor.fetchone()[0]
         await channel.send('QOTD: ' + qotd)
@@ -67,8 +67,6 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    channel = client.get_channel(CONFIG.TARGET_CHANNEL)
-
     if message.content.lower().startswith('mika add '):
         question = re.sub('mika add ', '', message.content, flags=re.IGNORECASE)
         await message.channel.send('QOTD ADDED: ' + question)
@@ -78,6 +76,7 @@ async def on_message(message):
         await post_question()
 
     if message.content.lower().startswith('mika say') and message.author.guild_permissions.kick_members:
+        channel = client.get_channel(CONFIG.TARGET_CHANNEL)
         my_message = re.sub('mika say ', '', message.content, flags=re.IGNORECASE)
         await channel.send(my_message)
 
