@@ -111,7 +111,7 @@ if len(sys.argv) > 1:
                 file.close()
             # If --export is given without an additional argument, print all questions to console instead.
             else:
-                for line in cursor.fetchall():
+                for line in cursor:
                     print(line)
         except Exception as export_error:
             print(export_error)
