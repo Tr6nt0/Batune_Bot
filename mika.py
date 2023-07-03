@@ -94,11 +94,17 @@ if len(sys.argv) > 1:
 
     if sys.argv[1] == '--export':
         try:
-            file = open(sys.argv[2], 'w')
             cursor.execute('SELECT questions FROM questions_table')
-            for line in cursor.fetchall():
-                file.writelines(line)
-            file.close()
+            # If --export is given with an additional argument, export to text file specified in that argument.
+            if len(sys.argv > 2):
+                file = open(sys.argv[2], 'w')
+                for line in cursor.fetchall():
+                    file.writelines(line)
+                file.close()
+            # If --export is given without an additional argument, print all questions to console instead.
+            else:
+                for line in cursor.fetchall():
+                    print(line)
         except Exception as export_error:
             print(export_error)
         exit()
