@@ -25,7 +25,7 @@ R. Mika can also send a message of any kind of content. With guild kick permissi
 R. Mika includes a few CLI utilities. 
 - `python3 mika.py --reset` will clear all questions and reinitialize the database.
 - `python3 mika.py --import <questions_to_import.txt>` Will import questions to the application database line by line.
-- `python3 mika.py --export <questions_to_export.txt>` Will export questions from the database to a specified file.
+- `python3 mika.py --export <questions_to_export.txt>` Will export questions from the database to a specified file. If argument 2 is not included, will print to questions instead.
 
 To prepopulate the questions database with sample questions, simply run `python3 mika.py --reset` to create the database, and
 then run `python3 mika.py --import questions.txt`. NOTE: The database will initialize the first time `python3 mika.py` runs if it has not been initialized yet.

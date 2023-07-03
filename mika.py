@@ -7,6 +7,15 @@ from datetime import datetime
 from discord.ext import tasks
 
 import CONFIG
+'''
+Create CONFIG.py in same directory as mika.py with the following content:
+
+DISCORD_TOKEN = <Token as a string>
+TARGET_CHANNEL =  <Channel ID as an integer>
+SCHEDULED_POST_HOUR = <Desired QOTD hour (24 Hour UTC)>
+SCHEDULED_POST_MINUTE = <Desired QOTD minute>
+
+'''
 
 intents = discord.Intents.default()
 intents.message_content = True
