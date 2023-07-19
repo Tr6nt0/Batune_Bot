@@ -1,4 +1,4 @@
-#QOTD Bot
+# QOTD Bot
 Question of the Day Discord Bot. Free to use, but credit to kevmuri would be nice. Simply selects a question randomly and posts it at a scheduled time.
 
 Create a bot in the Discord Developer Portal with message content intent toggled ON.
