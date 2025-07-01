@@ -1,120 +1,145 @@
 import discord
 import re
 import sqlite3
-import sys
+import csv
 from datetime import datetime
-
 from discord.ext import tasks
 
 import CONFIG
-'''
-Create CONFIG.py in same directory as mika.py with the following content:
-
-DISCORD_TOKEN = <Token as a string>
-TARGET_CHANNEL =  <Channel ID as an integer>
-SCHEDULED_POST_HOUR = <Desired QOTD hour (24 Hour UTC)>
-SCHEDULED_POST_MINUTE = <Desired QOTD minute>
-
-'''
 
 intents = discord.Intents.default()
 intents.message_content = True
 
-conn = sqlite3.connect('questions.db')
+conn = sqlite3.connect('fortunes.db')
 cursor = conn.cursor()
 
 client = discord.Client(intents=intents)
 
-cursor.execute('CREATE table IF NOT EXISTS questions_table (questions TEXT)')
+# Create fortunes table with index tracking
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS fortunes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        fortune TEXT UNIQUE,
+        used BOOLEAN DEFAULT 0
+    )
+''')
+cursor.execute('CREATE TABLE IF NOT EXISTS current_index (idx INTEGER DEFAULT 0)')
 conn.commit()
 
-
-def add_question(question):
-    cursor.execute('INSERT INTO questions_table (questions) VALUES (?)', [question])
+# Initialize index if not exists
+cursor.execute('SELECT idx FROM current_index')
+if not cursor.fetchone():
+    cursor.execute('INSERT INTO current_index (idx) VALUES (0)')
     conn.commit()
 
-
-def remove_question(question):
-    cursor.execute('DELETE FROM questions_table WHERE questions=?', [question])
-    conn.commit()
-
-
-async def post_question():
-    channel = client.get_channel(CONFIG.TARGET_CHANNEL)
-    cursor.execute('SELECT questions FROM questions_table ORDER BY random() LIMIT 1')
-
+def add_fortune(fortune):
     try:
-        qotd = cursor.fetchone()[0]
-        await channel.send('QOTD: ' + qotd)
-        remove_question(qotd)
-    except Exception as post_error:
-        print(post_error)
-        await channel.send('No questions left. Everyone submit one!')
-    print(f'{client.user} has posted!')
+        cursor.execute('INSERT INTO fortunes (fortune) VALUES (?)', [fortune])
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False  # Duplicate fortune
 
+def remove_fortune(fortune):
+    cursor.execute('DELETE FROM fortunes WHERE fortune=?', [fortune])
+    conn.commit()
+    return cursor.rowcount > 0
+
+def reset_fortunes():
+    cursor.execute('UPDATE fortunes SET used=0')
+    cursor.execute('UPDATE current_index SET idx=0')
+    conn.commit()
+
+def get_next_fortune():
+    # Get current index
+    cursor.execute('SELECT idx FROM current_index')
+    current_idx = cursor.fetchone()[0]
+    
+    # Get next unused fortune
+    cursor.execute('''
+        SELECT id, fortune FROM fortunes 
+        WHERE used=0 
+        ORDER BY id ASC 
+        LIMIT 1 OFFSET ?
+    ''', [current_idx])
+    result = cursor.fetchone()
+    
+    if result:
+        fortune_id, fortune = result
+        # Mark as used and update index
+        cursor.execute('UPDATE fortunes SET used=1 WHERE id=?', [fortune_id])
+        cursor.execute('UPDATE current_index SET idx=?', [current_idx + 1])
+        conn.commit()
+        return fortune
+    
+    # If no fortunes left, reset and start over
+    reset_fortunes()
+    return get_next_fortune()  # Recursive call to get first fortune
+
+async def post_fortune():
+    channel = client.get_channel(CONFIG.TARGET_CHANNEL)
+    try:
+        fotd = get_next_fortune()
+        await channel.send('🌟 **Fortune of the Day:**\n' + fotd)
+    except Exception as e:
+        print(f"Error posting fortune: {e}")
+        await channel.send('No fortunes available! Add some with `mika add <fortune>`')
 
 @tasks.loop(seconds=60)
-async def task():
-    if datetime.now().hour is CONFIG.SCHEDULED_POST_HOUR and datetime.now().minute is CONFIG.SCHEDULED_POST_MINUTE:
-        await post_question()
-
+async def scheduled_task():
+    now = datetime.utcnow()
+    if now.hour == CONFIG.SCHEDULED_POST_HOUR and now.minute == CONFIG.SCHEDULED_POST_MINUTE:
+        await post_fortune()
 
 @client.event
 async def on_ready():
-    print(f'{client.user} has connected to Discord! It is ' + str(datetime.utcnow()))
-    await task.start()
-
+    # Import fortunes from CSV on first run
+    cursor.execute('SELECT COUNT(*) FROM fortunes')
+    if cursor.fetchone()[0] == 0:
+        try:
+            with open('full_entries.csv', 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                for row in reader:
+                    if row:  # Skip empty lines
+                        add_fortune(row[0].strip())
+            print("Imported fortunes from full_entries.csv")
+        except Exception as e:
+            print(f"Error importing fortunes: {e}")
+    
+    print(f'{client.user} connected at {datetime.utcnow()}')
+    await scheduled_task.start()
 
 @client.event
 async def on_message(message):
+    # Fortune submission command
     if message.content.lower().startswith('mika add '):
-        question = re.sub('mika add ', '', message.content, flags=re.IGNORECASE)
-        await message.channel.send('QOTD ADDED: ' + question)
-        add_question(question)
-
-    if message.content.lower().startswith('mika test') and message.author.guild_permissions.kick_members:
-        await post_question()
-
-    if message.content.lower().startswith('mika say') and message.author.guild_permissions.kick_members:
+        fortune = re.sub(r'^mika add\s+', '', message.content, flags=re.IGNORECASE)
+        if add_fortune(fortune):
+            await message.channel.send(f'✨ Fortune added: "{fortune}"')
+        else:
+            await message.channel.send(f'⚠️ Fortune already exists: "{fortune}"')
+    
+    # Test command
+    if message.content.lower() == 'mika test' and message.author.guild_permissions.administrator:
+        await post_fortune()
+    
+    # Admin say command
+    if message.content.lower().startswith('mika say ') and message.author.guild_permissions.administrator:
         channel = client.get_channel(CONFIG.TARGET_CHANNEL)
-        my_message = re.sub('mika say ', '', message.content, flags=re.IGNORECASE)
-        await channel.send(my_message)
-
-
-if len(sys.argv) > 1:
-    if sys.argv[1] == '--reset':
-        cursor.execute('DROP table IF EXISTS questions_table')
-        cursor.execute('CREATE table questions_table (questions TEXT)')
-        conn.commit()
-        print('Question Table Reset Successfully.')
-        exit()
-
-    if sys.argv[1] == '--import':
-        try:
-            file = open(sys.argv[2], 'r')
-            lines = file.readlines()
-            for line in lines:
-                add_question(line)
-            file.close()
-        except Exception as import_error:
-            print(import_error)
-        exit()
-
-    if sys.argv[1] == '--export':
-        try:
-            cursor.execute('SELECT questions FROM questions_table')
-            # If --export is given with an additional argument, export to text file specified in that argument.
-            if len(sys.argv) > 2:
-                file = open(sys.argv[2], 'w')
-                for line in cursor.fetchall():
-                    file.writelines(line)
-                file.close()
-            # If --export is given without an additional argument, print all questions to console instead.
-            else:
-                for line in cursor.fetchall():
-                    print(line)
-        except Exception as export_error:
-            print(export_error)
-        exit()
+        content = re.sub(r'^mika say\s+', '', message.content, flags=re.IGNORECASE)
+        await channel.send(content)
+    
+    # Reset fortunes command
+    if message.content.lower() == 'mika reset' and message.author.guild_permissions.administrator:
+        reset_fortunes()
+        await message.channel.send('🔄 All fortunes have been reset and will be reused!')
+    
+    # Remove fortune command
+    if message.content.lower().startswith('mika remove ') and message.author.guild_permissions.administrator:
+        fortune = re.sub(r'^mika remove\s+', '', message.content, flags=re.IGNORECASE)
+        if remove_fortune(fortune):
+            await message.channel.send(f'🗑️ Removed fortune: "{fortune}"')
+        else:
+            await message.channel.send(f'⚠️ Fortune not found: "{fortune}"')
 
 client.run(CONFIG.DISCORD_TOKEN)
