@@ -1,6 +1,15 @@
-
 CONFIG.py
-.idea
-.vscode
-questions.db
-__pycache__
+
+fortunes.db       # New database name for BatuneBot
+
+fortunes_export.csv
+
+.idea/
+.vscode/
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+full_entries.csv
