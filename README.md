@@ -5,7 +5,7 @@ BatuneBot posts daily fortunes with priority to approved guild submissions, cycl
 ## Features
 - **Automated Daily Fortunes**: Posts at scheduled UTC time
 - **Dual ID System**: Preserves original Batune IDs + guild-specific IDs
-- **Submission Workflow**: Guild submissions require approval, global IDs that are not original are treated like guild IDs and must be approved by the admins who run the global servr
+- **Submission Workflow**: Guild submissions require approval, global IDs that are not original are treated like guild IDs and must be approved by the admins who run the global server
 - **Priority Queue**: Approved guild fortunes get posted first
 - **Complete In-Discord Management**: All operations through Discord commands
 - **Multi-Guild Support**: Guild-specific ID sequences and submissions
