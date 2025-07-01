@@ -69,7 +69,7 @@ mika remove 42 - Deletes guild fortune #42
 List all fortunes
 mika list - Shows fortunes with status indicators:
 
-Global #ID: Original Batune fortunes
+Global #ID: Original Batune fortunes and those added by users
 
 Guild #ID ⏳: Pending submission
 
