@@ -95,7 +95,7 @@ IDs start at 800
 
 Example: 🌍 Global Fortune #802
 
-🏛️ Batune Fortunes (Fallback)
+🏛️ Batune Fortunes (Fallback) Batune fortunes are treated as a preapproved guild with 800 submitted fortunes.
 
 Original wisdom from your CSV
 
