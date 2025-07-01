@@ -20,13 +20,13 @@ client = discord.Client(intents=intents)
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS fortunes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        global_id INTEGER UNIQUE,      -- Original Batune ID for global fortunes
-        guild_id INTEGER,               -- Guild-specific ID for user submissions
+        global_id INTEGER,               -- Original Batune ID for global fortunes
+        guild_id INTEGER,                 -- Guild-specific ID for user submissions
         forecast TEXT UNIQUE,
         used BOOLEAN DEFAULT 0,
-        source TEXT NOT NULL,           -- 'global' or 'guild'
-        approved BOOLEAN DEFAULT 0,     -- Only for guild submissions
-        origin_guild INTEGER,           -- Guild where submission was made
+        source TEXT NOT NULL,             -- 'global' or 'guild'
+        approved BOOLEAN DEFAULT 0,       -- Only for guild submissions
+        origin_guild INTEGER,              -- Guild where submission was made
         added_time DATETIME DEFAULT CURRENT_TIMESTAMP
     )
 ''')
@@ -104,8 +104,8 @@ def add_fortune(forecast, origin_guild=None):
         return False  # Duplicate fortune
 
 def remove_fortune(fortune_id):
-    """Remove a fortune by primary key ID"""
-    cursor.execute('DELETE FROM fortunes WHERE id=?', [fortune_id])
+    """Remove a fortune by primary key ID (only guild fortunes)"""
+    cursor.execute('DELETE FROM fortunes WHERE id=? AND source="guild"', [fortune_id])
     conn.commit()
     return cursor.rowcount > 0
 
@@ -305,7 +305,7 @@ async def on_message(message):
                 display_id = global_id if source == 'global' else guild_id
                 status = ""
                 if source == 'guild':
-                    status = " 👤" if approved else " ⏳"
+                    status = " ✅" if approved else " ⏳"
                 fortune_list.append(f"{id}: {'Global' if source == 'global' else 'Guild'} #{display_id} - {text}{status}")
             
             # Split into chunks to avoid Discord message limit
@@ -333,5 +333,24 @@ async def on_message(message):
             await message.channel.send(response)
         else:
             await message.channel.send("No pending fortunes to approve!")
+    
+    # Export command
+    if message.content.lower() == 'mika export' and message.author.guild_permissions.administrator:
+        cursor.execute('''
+            SELECT id, global_id, guild_id, forecast, source, approved, origin_guild 
+            FROM fortunes 
+            ORDER BY COALESCE(global_id, guild_id) ASC
+        ''')
+        fortunes = cursor.fetchall()
+        
+        if fortunes:
+            with open('fortunes_export.csv', 'w', encoding='utf-8', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['management_id', 'global_id', 'guild_id', 'forecast', 'source', 'approved', 'origin_guild'])
+                for row in fortunes:
+                    writer.writerow(row)
+            await message.channel.send('💾 Fortune database exported to `fortunes_export.csv`')
+        else:
+            await message.channel.send("No fortunes to export!")
 
 client.run(CONFIG.DISCORD_TOKEN)
