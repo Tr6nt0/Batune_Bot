@@ -1,14 +1,16 @@
 # BatuneBot - Fortune of the Day Discord Bot
 
-BatuneBot posts daily fortunes from the Batune collection in sequence, resetting when all have been used. Free to use, but credit to BATUNEDeveloper (batune.com) and kevmuri would be appreciated.
+BatuneBot posts daily fortunes with priority to approved guild submissions, cycling through all fortunes automatically. Free to use, but credit to BATUNEDeveloper (batune.com) and kevmuri would be appreciated.
 
 ## Features
 - **Automated Daily Fortunes**: Posts at scheduled UTC time
-- **Original Batune Preservation**: Maintains IDs and order from your collection
-- **Complete In-Discord Management**: No command-line needed
-- **User Submissions**: Members can contribute new fortunes
-- **Cycling System**: Automatically resets after all fortunes are used
-- **Backup Export**: Save your fortune database to CSV
+- **Dual ID System**: Preserves original Batune IDs + guild-specific IDs
+- **Submission Workflow**: Guild submissions require approval, global auto-approved
+- **Priority Queue**: Approved guild fortunes get posted first
+- **Complete In-Discord Management**: All operations through Discord commands
+- **Multi-Guild Support**: Guild-specific ID sequences and submissions
+- **Fortune Cycling**: Automatically resets after all fortunes are used
+- **Backup System**: Export database to CSV with `mika export`
 
 ## Setup Instructions
 
@@ -41,20 +43,37 @@ Using BatuneBot
 For Everyone
 Add a fortune
 mika add Your fortune text here
+In DMs: Creates global fortune (auto-approved)
+In guild channel: Creates guild submission (needs approval)
 Example: mika add You will discover something wonderful today
 
 For Admins
 Test fortune posting
 mika test - Immediately posts today's fortune
 
+Approve guild submissions
+mika approve 42 - Approves fortune #42
+
+Reject guild submissions
+mika reject 42 - Rejects and removes fortune #42
+
+List pending approvals
+mika pending - Shows submissions needing approval
+
 Reset all fortunes
-mika reset - Marks all fortunes as unused (starts sequence over)
+mika reset - Marks all fortunes as unused
 
-Remove a fortune
-mika remove 42 - Deletes fortune #42
+Remove guild fortune
+mika remove 42 - Deletes guild fortune #42
 
-View all fortunes
-mika list - Shows all fortunes with IDs
+List all fortunes
+mika list - Shows fortunes with status indicators:
+
+Global #ID: Original Batune fortunes
+
+Guild #ID ⏳: Pending submission
+
+Guild #ID ✅: Approved submission
 
 Export database
 mika export - Creates fortunes_export.csv backup
@@ -63,30 +82,54 @@ Send custom message
 mika say Your announcement here
 
 How It Works
-First Run:
+First Run
+Creates database with new schema
 
-Automatically imports fortunes from full_entries.csv
+Imports fortunes from full_entries.csv as global fortunes
 
-Preserves original Batune IDs
+Starts posting from index 0 (first fortune)
 
-Starts posting from position 800 (index 799)
+Daily Operation
+Priority to Approved Guild Fortunes:
 
-Daily Operation:
+Checks for approved guild submissions first
 
-Posts next fortune in sequence at scheduled time
+Posts oldest approved submission
+
+Global Fortunes:
+
+If no guild submissions, posts next global fortune in ID order
 
 Maintains position between restarts
 
-Automatically resets when all fortunes have been used
+Reset Mechanism:
 
-Adding Fortunes:
+When all fortunes are used, marks all as unused
 
-New submissions get auto-incremented Batune IDs
+Resets to first fortune in sequence
 
-Added to end of sequence
+Adding Fortunes
+Global Submissions (DMs):
 
-Duplicates automatically prevented
+Auto-approved
 
+Get next global ID (continues from highest Batune ID)
+
+Added to global fortune queue
+
+Guild Submissions (Server Channels):
+
+Require admin approval
+
+Get guild-specific ID (unique within guild)
+
+Added to pending queue until approved
+
+ID System Explained
+ID Type	Format	Scope	Example
+Management ID	Single number	All fortunes	42 (used in commands)
+Global ID	Global #ID	Batune/original	Global #815
+Guild ID	Guild #ID	Guild-specific	Guild #7
 Credits
 Original concept: kevmuri (QOTD Bot)
 
@@ -94,36 +137,11 @@ Fortune system: BATUNEDeveloper (batune.com)
 
 Bot adaptation: Tr6nt0
 
-Key improvements from the previous version:
+Troubleshooting
+Duplicate fortune error: Fortune text must be unique
 
-1. **Complete CLI Removal**:
-   - All management happens through Discord commands
-   - No command-line utilities mentioned
-   - Export function now via `mika export` command
+Global fortune protection: Admins can't remove global fortunes
 
-2. **Simplified Setup**:
-   - Combined installation and running into one section
-   - Removed redundant steps
-   - Clearer CSV format requirements
+Index starts at 0: First fortune is position 0
 
-3. **Enhanced Command Documentation**:
-   - Separated user vs admin commands
-   - Added practical examples
-   - Better organization of functionality
-
-4. **Focus on Discord Workflow**:
-   - Emphasized in-client management
-   - Highlighted automatic features
-   - Streamlined instructions
-
-5. **Clearer Sequence Explanation**:
-   - Explicitly mentions starting position (800)
-   - Explains auto-reset behavior
-   - Clarifies ID assignment for new fortunes
-
-6. **Updated Credits**:
-   - Added your username as adapter
-   - Maintained all original attributions
-   - Clearer role definitions
-
-This documentation provides a complete setup and usage guide without any command-line dependencies, focusing entirely on the Discord interface and automated features of BatuneBot.
+Export format: CSV with management ID, global ID, guild ID, and source
