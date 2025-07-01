@@ -1,31 +1,129 @@
-# QOTD Bot
-Question of the Day Discord Bot. Free to use, but credit to kevmuri would be nice. Simply selects a question randomly and posts it at a scheduled time.
+# BatuneBot - Fortune of the Day Discord Bot
 
-Create a bot in the Discord Developer Portal with message content intent toggled ON.
+BatuneBot posts daily fortunes from the Batune collection in sequence, resetting when all have been used. Free to use, but credit to BATUNEDeveloper (batune.com) and kevmuri would be appreciated.
 
-Using your favorite text editor, create CONFIG.py in the repo directory with the following content.
-```
-DISCORD_TOKEN = <bot token>
-TARGET_CHANNEL = <ID of desired channel>
-SCHEDULED_POST_HOUR = <Hour QOTD is to be posted in UTC>
-SCHEDULED_POST_MINUTE = <Minute QOTD is to be posted>
-```
+## Features
+- **Automated Daily Fortunes**: Posts at scheduled UTC time
+- **Original Batune Preservation**: Maintains IDs and order from your collection
+- **Complete In-Discord Management**: No command-line needed
+- **User Submissions**: Members can contribute new fortunes
+- **Cycling System**: Automatically resets after all fortunes are used
+- **Backup Export**: Save your fortune database to CSV
 
-And assuming pip is installed, run `pip install -r requirements.txt` in the repository.
+## Setup Instructions
 
-Run qotd-bot with `python3 mika.py`.
+### 1. Create Discord Bot
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create a New Application
+3. Navigate to Bot → Privileged Gateway Intents → Enable "Message Content Intent"
+4. Copy your bot token
 
-To add a question simply send a discord message beginning with `mika add <QUESTION>` in any channel the bot resides in. 
-It will randomly select a question and post it at the scheduled time.
+### 2. Configure Environment
+Create `CONFIG.py` in the bot directory with:
+```python
+DISCORD_TOKEN = "your_bot_token_here"
+TARGET_CHANNEL = 123456789012345678  # Replace with your channel ID
+SCHEDULED_POST_HOUR = 14  # 24-hour UTC format (e.g., 14 = 2PM UTC)
+SCHEDULED_POST_MINUTE = 0
+3. Prepare Fortune Database
+Place your Batune collection CSV as full_entries.csv with columns:
 
-To force a question, someone with guild kick permissions simply needs to send a discord message with the content of `mika test`.
+text
+id,forecast,direction
+1,You will have a great day!,positive
+2,Good fortune is coming your way,positive
+...
+4. Install & Run
+bash
+pip install discord.py
+python batunebot.py
+Using BatuneBot
+For Everyone
+Add a fortune
+mika add Your fortune text here
+Example: mika add You will discover something wonderful today
 
-QOTD Bot can also send a message of any kind of content. With guild kick permissions, begin a message with `mika say` and it will be posted in the target channel.
+For Admins
+Test fortune posting
+mika test - Immediately posts today's fortune
 
-QOTD Bot includes a few CLI utilities. 
-- `python3 mika.py --reset` will clear all questions and reinitialize the database.
-- `python3 mika.py --import <questions_to_import.txt>` Will import questions to the application database line by line.
-- `python3 mika.py --export <questions_to_export.txt>` Will export questions from the database to a specified file. If argument 2 is not included, will print to console instead.
+Reset all fortunes
+mika reset - Marks all fortunes as unused (starts sequence over)
 
-To prepopulate the questions database with sample questions, simply run `python3 mika.py --reset` to create the database, and
-then run `python3 mika.py --import questions.txt`. NOTE: The database will initialize the first time `python3 mika.py` runs if it has not been initialized yet.
+Remove a fortune
+mika remove 42 - Deletes fortune #42
+
+View all fortunes
+mika list - Shows all fortunes with IDs
+
+Export database
+mika export - Creates fortunes_export.csv backup
+
+Send custom message
+mika say Your announcement here
+
+How It Works
+First Run:
+
+Automatically imports fortunes from full_entries.csv
+
+Preserves original Batune IDs
+
+Starts posting from position 800 (index 799)
+
+Daily Operation:
+
+Posts next fortune in sequence at scheduled time
+
+Maintains position between restarts
+
+Automatically resets when all fortunes have been used
+
+Adding Fortunes:
+
+New submissions get auto-incremented Batune IDs
+
+Added to end of sequence
+
+Duplicates automatically prevented
+
+Credits
+Original concept: kevmuri (QOTD Bot)
+
+Fortune system: BATUNEDeveloper (batune.com)
+
+Bot adaptation: Tr6nt0
+
+Key improvements from the previous version:
+
+1. **Complete CLI Removal**:
+   - All management happens through Discord commands
+   - No command-line utilities mentioned
+   - Export function now via `mika export` command
+
+2. **Simplified Setup**:
+   - Combined installation and running into one section
+   - Removed redundant steps
+   - Clearer CSV format requirements
+
+3. **Enhanced Command Documentation**:
+   - Separated user vs admin commands
+   - Added practical examples
+   - Better organization of functionality
+
+4. **Focus on Discord Workflow**:
+   - Emphasized in-client management
+   - Highlighted automatic features
+   - Streamlined instructions
+
+5. **Clearer Sequence Explanation**:
+   - Explicitly mentions starting position (800)
+   - Explains auto-reset behavior
+   - Clarifies ID assignment for new fortunes
+
+6. **Updated Credits**:
+   - Added your username as adapter
+   - Maintained all original attributions
+   - Clearer role definitions
+
+This documentation provides a complete setup and usage guide without any command-line dependencies, focusing entirely on the Discord interface and automated features of BatuneBot.
