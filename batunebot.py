@@ -2,7 +2,6 @@ import discord
 import re
 import sqlite3
 import csv
-import os
 from datetime import datetime
 from discord.ext import tasks
 
@@ -22,7 +21,7 @@ cursor.execute('''
     CREATE TABLE IF NOT EXISTS submissions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         forecast TEXT UNIQUE,
-        source TEXT NOT NULL,             -- 'global' or 'guild'
+        source TEXT NOT NULL,             -- 'guild' or 'global'
         status TEXT DEFAULT 'pending',    -- 'pending', 'approved', 'rejected'
         submitted_by INTEGER,             -- User ID who submitted
         submitted_guild INTEGER,          -- Guild ID where submitted
@@ -33,39 +32,31 @@ cursor.execute('''
 cursor.execute('''
     CREATE TABLE IF NOT EXISTS fortunes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        original_id INTEGER,             -- Original Batune ID for global fortunes
-        guild_id INTEGER,                 -- Guild-specific ID for approved submissions
+        batune_id INTEGER UNIQUE,         -- Original Batune ID (1-799)
+        guild_id INTEGER,                 -- Guild-specific ID
+        global_id INTEGER,                -- Global submission ID (800+)
         forecast TEXT UNIQUE,
         used BOOLEAN DEFAULT 0,
-        source TEXT NOT NULL,             -- 'global' or 'guild'
+        source TEXT NOT NULL,             -- 'batune', 'guild', or 'global'
         approved_by INTEGER,              -- Admin who approved
-        approved_time DATETIME,
-        added_index INTEGER               -- Position in global queue
+        approved_time DATETIME
     )
 ''')
 
 cursor.execute('''
-    CREATE TABLE IF NOT EXISTS global_index (
-        last_index INTEGER DEFAULT 799
+    CREATE TABLE IF NOT EXISTS queue_state (
+        batune_index INTEGER DEFAULT 0    -- Position in Batune queue
     )
 ''')
 
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS guild_index (
-        guild_id INTEGER PRIMARY KEY,
-        last_index INTEGER DEFAULT 0
-    )
-''')
-conn.commit()
-
-# Initialize global index if not exists
-cursor.execute('SELECT last_index FROM global_index')
+# Initialize queue state if not exists
+cursor.execute('SELECT batune_index FROM queue_state')
 if cursor.fetchone() is None:
-    cursor.execute('INSERT INTO global_index (last_index) VALUES (799)')
+    cursor.execute('INSERT INTO queue_state (batune_index) VALUES (0)')
     conn.commit()
 
 def import_fortunes():
-    """Import fortunes from full_entries.csv on startup"""
+    """Import original Batune fortunes from full_entries.csv on startup"""
     try:
         with open('full_entries.csv', 'r', encoding='utf-8') as f:
             reader = csv.reader(f)
@@ -73,26 +64,27 @@ def import_fortunes():
             for row in reader:
                 if len(row) >= 2:
                     try:
-                        original_id = int(row[0])
+                        batune_id = int(row[0])
                         forecast = row[1].strip()
                         if forecast:
-                            # Add directly to fortunes as pre-approved global
+                            # Add directly to fortunes as Batune fortune
                             cursor.execute('''
                                 INSERT INTO fortunes 
-                                (original_id, forecast, source, added_index) 
-                                VALUES (?, ?, 'global', ?)
-                            ''', (original_id, forecast, original_id))
+                                (batune_id, forecast, source) 
+                                VALUES (?, ?, 'batune')
+                            ''', (batune_id, forecast))
                     except (ValueError, IndexError, sqlite3.IntegrityError):
                         continue
         conn.commit()
         return True
     except Exception as e:
-        print(f"Error importing fortunes: {e}")
+        print(f"Error importing Batune fortunes: {e}")
         return False
 
 def add_submission(forecast, user_id, guild_id=None):
     """Add a new fortune submission"""
     try:
+        # Determine source based on context
         source = 'guild' if guild_id else 'global'
         cursor.execute('''
             INSERT INTO submissions 
@@ -121,50 +113,34 @@ def approve_submission(submission_id, approver_id):
         forecast, source, submitted_guild = submission
         
         # Add to fortunes with appropriate ID
-        if source == 'global':
-            # Get next global index
-            cursor.execute('SELECT last_index FROM global_index')
-            current_index = cursor.fetchone()[0]
-            new_index = current_index + 1
-            
-            cursor.execute('''
-                INSERT INTO fortunes 
-                (forecast, source, approved_by, added_index) 
-                VALUES (?, 'global', ?, ?)
-            ''', (forecast, approver_id, new_index))
-            
-            # Update global index
-            cursor.execute('UPDATE global_index SET last_index=?', (new_index,))
-        else:
-            # Guild submission
+        if source == 'guild':
             # Get next guild ID for this guild
             cursor.execute('''
-                SELECT last_index FROM guild_index 
-                WHERE guild_id=?
+                SELECT COALESCE(MAX(guild_id), 0) FROM fortunes 
+                WHERE submitted_guild=?
             ''', (submitted_guild,))
-            result = cursor.fetchone()
-            guild_index = result[0] if result else 0
-            new_guild_id = guild_index + 1
+            max_guild_id = cursor.fetchone()[0] or 0
+            new_guild_id = max_guild_id + 1
             
             cursor.execute('''
                 INSERT INTO fortunes 
-                (forecast, source, guild_id, approved_by, submitted_guild) 
-                VALUES (?, 'guild', ?, ?, ?)
-            ''', (forecast, new_guild_id, approver_id, submitted_guild))
+                (guild_id, forecast, source, submitted_guild, approved_by) 
+                VALUES (?, ?, 'guild', ?, ?)
+            ''', (new_guild_id, forecast, submitted_guild, approver_id))
+        else:
+            # Global submission
+            cursor.execute('''
+                SELECT COALESCE(MAX(global_id), 799) FROM fortunes 
+                WHERE source='global'
+            ''')
+            max_global_id = cursor.fetchone()[0] or 799
+            new_global_id = max_global_id + 1
             
-            # Update guild index
-            if result:
-                cursor.execute('''
-                    UPDATE guild_index 
-                    SET last_index=? 
-                    WHERE guild_id=?
-                ''', (new_guild_id, submitted_guild))
-            else:
-                cursor.execute('''
-                    INSERT INTO guild_index 
-                    (guild_id, last_index) 
-                    VALUES (?, ?)
-                ''', (submitted_guild, new_guild_id))
+            cursor.execute('''
+                INSERT INTO fortunes 
+                (global_id, forecast, source, approved_by) 
+                VALUES (?, ?, 'global', ?)
+            ''', (new_global_id, forecast, approver_id))
         
         # Update submission status
         cursor.execute('''
@@ -190,10 +166,10 @@ def reject_submission(submission_id):
     return cursor.rowcount > 0
 
 def get_next_fortune():
-    """Get the next fortune to display"""
-    # First check for approved guild submissions
+    """Get the next fortune to display with proper priority"""
+    # 1. First try to get an approved guild submission
     cursor.execute('''
-        SELECT id, forecast, source, guild_id, submitted_guild 
+        SELECT id, guild_id, submitted_guild, forecast 
         FROM fortunes 
         WHERE used=0 AND source='guild'
         ORDER BY approved_time ASC
@@ -202,39 +178,65 @@ def get_next_fortune():
     guild_fortune = cursor.fetchone()
     
     if guild_fortune:
-        fortune_id, forecast, source, guild_id, submitted_guild = guild_fortune
+        fortune_id, guild_id, submitted_guild, forecast = guild_fortune
         cursor.execute('UPDATE fortunes SET used=1 WHERE id=?', (fortune_id,))
         conn.commit()
         return {
             'id': fortune_id,
             'display_id': f"Guild-{submitted_guild}-{guild_id}",
             'forecast': forecast,
-            'source': source
+            'source': 'guild'
         }
     
-    # Then check global fortunes
+    # 2. Then try to get an approved global submission
     cursor.execute('''
-        SELECT id, forecast, added_index 
+        SELECT id, global_id, forecast 
         FROM fortunes 
         WHERE used=0 AND source='global'
-        ORDER BY added_index ASC
+        ORDER BY approved_time ASC
         LIMIT 1
     ''')
     global_fortune = cursor.fetchone()
     
     if global_fortune:
-        fortune_id, forecast, added_index = global_fortune
+        fortune_id, global_id, forecast = global_fortune
         cursor.execute('UPDATE fortunes SET used=1 WHERE id=?', (fortune_id,))
         conn.commit()
         return {
             'id': fortune_id,
-            'display_id': f"Global-{added_index}",
+            'display_id': f"Global-{global_id}",
             'forecast': forecast,
             'source': 'global'
         }
     
-    # If no fortunes, reset and try again
+    # 3. Finally, try to get a Batune fortune
+    cursor.execute('SELECT batune_index FROM queue_state')
+    batune_index = cursor.fetchone()[0]
+    
+    cursor.execute('''
+        SELECT id, batune_id, forecast 
+        FROM fortunes 
+        WHERE source='batune'
+        ORDER BY batune_id ASC 
+        LIMIT 1 OFFSET ?
+    ''', (batune_index,))
+    batune_fortune = cursor.fetchone()
+    
+    if batune_fortune:
+        fortune_id, batune_id, forecast = batune_fortune
+        cursor.execute('UPDATE fortunes SET used=1 WHERE id=?', (fortune_id,))
+        cursor.execute('UPDATE queue_state SET batune_index=?', (batune_index + 1,))
+        conn.commit()
+        return {
+            'id': fortune_id,
+            'display_id': f"Batune-{batune_id}",
+            'forecast': forecast,
+            'source': 'batune'
+        }
+    
+    # 4. If no fortunes found, reset everything and try again
     cursor.execute('UPDATE fortunes SET used=0')
+    cursor.execute('UPDATE queue_state SET batune_index=0')
     conn.commit()
     return get_next_fortune()
 
@@ -242,11 +244,13 @@ async def post_fortune():
     channel = client.get_channel(CONFIG.TARGET_CHANNEL)
     try:
         fortune = get_next_fortune()
-        if fortune['source'] == 'global':
-            await channel.send(f'🌍 **Global Fortune #{fortune["display_id"].split("-")[-1]}:**\n{fortune["forecast"]}')
-        else:
+        if fortune['source'] == 'guild':
             parts = fortune['display_id'].split('-')
             await channel.send(f'🌟 **Fortune from Guild {parts[1]} (#{parts[2]}):**\n{fortune["forecast"]}')
+        elif fortune['source'] == 'global':
+            await channel.send(f'🌍 **Global Fortune #{fortune["display_id"].split("-")[-1]}:**\n{fortune["forecast"]}')
+        else:
+            await channel.send(f'🏛️ **Original Batune #{fortune["display_id"].split("-")[-1]}:**\n{fortune["forecast"]}')
     except Exception as e:
         print(f"Error posting fortune: {e}")
         await channel.send('Error posting fortune. Please try again.')
@@ -260,12 +264,12 @@ async def scheduled_task():
 @client.event
 async def on_ready():
     # Initialize database on first run
-    cursor.execute('SELECT COUNT(*) FROM fortunes')
+    cursor.execute('SELECT COUNT(*) FROM fortunes WHERE source="batune"')
     if cursor.fetchone()[0] == 0:
         if import_fortunes():
-            print("Imported fortunes from full_entries.csv")
+            print("Imported Batune fortunes from full_entries.csv")
         else:
-            print("Error importing fortunes. Using empty database.")
+            print("Error importing Batune fortunes")
     
     print(f'{client.user} connected at {datetime.utcnow()}')
     await scheduled_task.start()
@@ -329,6 +333,7 @@ async def on_message(message):
     # Reset fortunes command
     if message.content.lower() == 'mika reset' and message.author.guild_permissions.administrator:
         cursor.execute('UPDATE fortunes SET used=0')
+        cursor.execute('UPDATE queue_state SET batune_index=0')
         conn.commit()
         await message.channel.send('🔄 All fortunes have been reset!')
     
@@ -355,21 +360,30 @@ async def on_message(message):
     # List fortunes command
     if message.content.lower() == 'mika fortunes' and message.author.guild_permissions.administrator:
         cursor.execute('''
-            SELECT id, source, added_index, guild_id, submitted_guild, forecast 
+            SELECT id, source, batune_id, global_id, guild_id, submitted_guild, forecast 
             FROM fortunes 
-            ORDER BY approved_time DESC
+            ORDER BY CASE source
+                WHEN 'guild' THEN 1
+                WHEN 'global' THEN 2
+                WHEN 'batune' THEN 3
+            END ASC, approved_time DESC
             LIMIT 25
         ''')
         fortunes = cursor.fetchall()
         
         if fortunes:
-            response = "🔮 **Recent Fortunes:**\n"
+            response = "🔮 **Fortune Queue (Priority Order):**\n"
             for f in fortunes:
-                if f[1] == 'global':
-                    ident = f"Global-{f[2]}"
+                if f[1] == 'batune':
+                    ident = f"Batune-{f[2]}"
+                    emoji = "🏛️"
+                elif f[1] == 'global':
+                    ident = f"Global-{f[3]}"
+                    emoji = "🌍"
                 else:
-                    ident = f"Guild-{f[4]}-{f[3]}"
-                response += f"{f[0]}: {ident} - {f[5][:50]}{'...' if len(f[5]) > 50 else ''}\n"
+                    ident = f"Guild-{f[5]}-{f[4]}"
+                    emoji = "🌟"
+                response += f"{emoji} {f[0]}: {ident} - {f[6][:50]}{'...' if len(f[6]) > 50 else ''}\n"
             await message.channel.send(response)
         else:
             await message.channel.send("No fortunes found!")
